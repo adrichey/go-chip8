@@ -49,5 +49,17 @@ func main() {
 	// Same behavior as the Delay Timer
 	var soundTimer byte
 
+	// The screen output consists of a monochrome 64x32 grid
+	// Setting these to 32-bit ints for SDL compatibility and possible reuse
+	screen := make([][]uint32, 32)
+	for k, _ := range screen {
+		screen[k] = make([]uint32, 64)
+		for i, _ := range screen[k] {
+			screen[k][i] = 0x00000000
+		}
+	}
+
+	fmt.Println(screen)
+
 	fmt.Println("EXITED")
 }
