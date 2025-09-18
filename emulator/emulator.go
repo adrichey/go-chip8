@@ -22,7 +22,7 @@ const FONTSET_START_ADDRESS uint = 0x50
 
 type chip8 struct {
 	// Chip8 has 16 8-bit registers
-	registers map[string]byte
+	registers [16]byte
 
 	// 4k bytes of memory
 	memory [4096]byte
@@ -50,30 +50,17 @@ type chip8 struct {
 	// Same behavior as the Delay Timer
 	soundTimer byte
 
+	// Store the opcode for instructions
+	opcode uint16
+
 	scrn screen
 }
 
 func newChip8() chip8 {
 	c8 := chip8{}
 
-	// Can I make this more succinct??
-	c8.registers = map[string]byte{
-		"V0": 0,
-		"V1": 0,
-		"V2": 0,
-		"V3": 0,
-		"V4": 0,
-		"V5": 0,
-		"V6": 0,
-		"V7": 0,
-		"V8": 0,
-		"V9": 0,
-		"VA": 0,
-		"VB": 0,
-		"VC": 0,
-		"VD": 0,
-		"VE": 0,
-		"VF": 0,
+	for k := range c8.registers {
+		c8.registers[k] = 0
 	}
 
 	for k := range c8.memory {
@@ -112,6 +99,7 @@ func newChip8() chip8 {
 	c8.stackPointer = 0
 	c8.delayTimer = 0
 	c8.soundTimer = 0
+	c8.opcode = 0
 
 	c8.programCounter = uint16(START_ADDRESS)
 
@@ -167,4 +155,33 @@ Jump to location nnn.
 The interpreter sets the program counter to nnn.
 A jump doesn’t remember its origin, so no stack interaction required.
 */
-// TODO
+func (c8 *chip8) op1nnn() {
+	// Use bitwise AND to find our jump location in our memory array
+	address := c8.opcode & 0x0FFF
+	c8.programCounter = address
+}
+
+/*
+2nnn - CALL addr
+Call subroutine at nnn.
+*/
+func (c8 *chip8) op2nnn() {
+	address := c8.opcode & 0x0FFF
+	c8.stack[c8.stackPointer] = c8.programCounter
+	c8.stackPointer += 1
+	c8.programCounter = address
+}
+
+/*
+3xkk - SE Vx, byte
+Skip next instruction if Vx = kk.
+Since our PC has already been incremented by 2 in Cycle(), we can just increment by 2 again to skip the next instruction.
+*/
+func (c8 *chip8) op3xkk() {
+	vx := byte((c8.opcode & 0x0F00) >> 8)
+	b := byte(c8.opcode & 0x00FF)
+
+	if c8.registers[vx] == b {
+		c8.programCounter += 2
+	}
+}
