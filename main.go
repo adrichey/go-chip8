@@ -7,10 +7,7 @@ import (
 )
 
 func main() {
-	// The screen output consists of a monochrome 64x32 grid
-	// Setting these to 32-bit ints for SDL compatibility and possible reuse
-	screen := emulator.Screen{}
-	screen.Draw()
+	emulator.LoadChip8ROM("./test_opcode.ch8")
 
 	fmt.Println("EXITED")
 }
