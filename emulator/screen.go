@@ -2,8 +2,11 @@ package emulator
 
 import "fmt"
 
+const VIDEO_HEIGHT = 32
+const VIDEO_WIDTH = 64
+
 type screen struct {
-	window [32][64]uint32
+	window [VIDEO_HEIGHT][VIDEO_WIDTH]uint32
 }
 
 func (s *screen) reset() {
