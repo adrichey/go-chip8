@@ -53,6 +53,9 @@ type chip8 struct {
 	// Store the opcode for instructions
 	opcode uint16
 
+	// Keypad for input
+	keypad [16]byte
+
 	scrn screen
 }
 
@@ -102,6 +105,8 @@ func newChip8() chip8 {
 	c8.opcode = 0
 
 	c8.programCounter = uint16(START_ADDRESS)
+
+	// TODO: Initialize keyboard
 
 	c8.scrn.reset()
 
@@ -447,26 +452,141 @@ Ex9E - SKP Vx
 Skip next instruction if key with the value of Vx is pressed.
 Since our PC has already been incremented by 2 in Cycle(), we can just increment by 2 again to skip the next instruction.
 */
-func (c8 *chip8) opDxyn() {
+func (c8 *chip8) opEx9E() {
 	vx := byte((c8.opcode & 0x0F00) >> 8)
-	vy := byte((c8.opcode & 0x00F0) >> 4)
-	height := uint16(c8.opcode & 0x000F)
-	var pixel uint16
+	key := c8.registers[vx]
 
-	c8.registers[0xF] = 0
-	for row := uint16(0); row < height; row++ {
-		pixel = uint16(c8.memory[c8.indexRegister+row])
-		for col := uint16(0); col < 8; col++ {
-			// If pixel is on...
-			if (pixel & (0x80 >> col)) != 0 {
-				// And screen pizel is also on: collision
-				if c8.scrn.window[vy][vx] == 1 {
-					c8.registers[0xF] = 1
-				}
+	if c8.keypad[key] != 0 {
+		c8.programCounter += 2
+	}
+}
 
-				// XOR with the screen pixel with the sprite pixel
-				c8.scrn.window[vy][vx] ^= 1
-			}
+/*
+ExA1 - SKNP Vx
+Skip next instruction if key with the value of Vx is not pressed.
+Since our PC has already been incremented by 2 in Cycle(), we can just increment by 2 again to skip the next instruction.
+*/
+func (c8 *chip8) opExA1() {
+	vx := byte((c8.opcode & 0x0F00) >> 8)
+	key := c8.registers[vx]
+
+	if c8.keypad[key] == 0 {
+		c8.programCounter += 2
+	}
+}
+
+/*
+Fx07 - LD Vx, DT
+Set Vx = delay timer value.
+*/
+func (c8 *chip8) opFx07() {
+	vx := byte((c8.opcode & 0x0F00) >> 8)
+	c8.registers[vx] = c8.delayTimer
+}
+
+/*
+Fx0A - LD Vx, K
+Wait for a key press, store the value of the key in Vx.
+The easiest way to "wait" is to decrement the PC by 2 whenever a keypad value is not detected.
+This has the effect of running the same instruction repeatedly.
+*/
+func (c8 *chip8) opFx0A() {
+	vx := byte((c8.opcode & 0x0F00) >> 8)
+
+	for k, v := range c8.keypad {
+		if v != 0 {
+			c8.registers[vx] = byte(k)
+			return
 		}
+	}
+
+	c8.programCounter -= 2
+}
+
+/*
+Fx15 - LD DT, Vx
+Set delay timer = Vx.
+*/
+func (c8 *chip8) opFx15() {
+	vx := byte((c8.opcode & 0x0F00) >> 8)
+	c8.delayTimer = c8.registers[vx]
+}
+
+/*
+Fx18 - LD ST, Vx
+Set sound timer = Vx.
+*/
+func (c8 *chip8) opFx18() {
+	vx := byte((c8.opcode & 0x0F00) >> 8)
+	c8.soundTimer = c8.registers[vx]
+}
+
+/*
+Fx1E - ADD I, Vx
+Set I = I + Vx.
+*/
+func (c8 *chip8) opFx1E() {
+	vx := byte((c8.opcode & 0x0F00) >> 8)
+	c8.indexRegister += uint16(c8.registers[vx])
+}
+
+/*
+Fx29 - LD F, Vx
+Set I = location of sprite for digit Vx.
+We know the font characters are located at 0x50, and we know they’re five bytes each, so we can get the address of the first byte of any character by taking an offset from the start address.
+*/
+func (c8 *chip8) opFx29() {
+	vx := byte((c8.opcode & 0x0F00) >> 8)
+	digit := uint16(c8.registers[vx])
+
+	c8.indexRegister = uint16(FONTSET_START_ADDRESS) + (5 * digit)
+}
+
+/*
+Fx33 - LD B, Vx
+Store BCD representation of Vx in memory locations I, I+1, and I+2.
+The interpreter takes the decimal value of Vx, and places the hundreds digit in memory at location in I, the tens digit at location I+1, and the ones digit at location I+2.
+We can use the modulus operator to get the right-most digit of a number, and then do a division to remove that digit.
+A division by ten will either completely remove the digit (340 / 10 = 34), or result in a float which will be truncated (345 / 10 = 34.5 = 34).
+*/
+func (c8 *chip8) opFx33() {
+	vx := byte((c8.opcode & 0x0F00) >> 8)
+	value := c8.registers[vx]
+
+	// Ones-place
+	c8.memory[c8.indexRegister+2] = value % 10
+	value /= 10
+
+	// Tens-place
+	c8.memory[c8.indexRegister+1] = value % 10
+	value /= 10
+
+	// Hundreds-place
+	c8.memory[c8.indexRegister] = value % 10
+}
+
+/*
+Fx55 - LD [I], Vx
+Store registers V0 through Vx in memory starting at location I.
+*/
+func (c8 *chip8) opFx55() {
+	vx := byte((c8.opcode & 0x0F00) >> 8)
+
+	// TODO: This may cause an overflow or indexing issues. Need to do some thorough testing
+	for i := byte(0); i <= vx; i++ {
+		c8.memory[byte(c8.indexRegister)+i] = c8.registers[i]
+	}
+}
+
+/*
+Fx65 - LD Vx, [I]
+Read registers V0 through Vx from memory starting at location I.
+*/
+func (c8 *chip8) opFx65() {
+	vx := byte((c8.opcode & 0x0F00) >> 8)
+
+	// TODO: This may cause an overflow or indexing issues. Need to do some thorough testing
+	for i := byte(0); i <= vx; i++ {
+		c8.registers[i] = c8.memory[byte(c8.indexRegister)+i]
 	}
 }
