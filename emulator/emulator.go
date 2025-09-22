@@ -1,6 +1,7 @@
 package emulator
 
 import (
+	"fmt"
 	"log"
 	"os"
 )
@@ -125,7 +126,113 @@ func LoadChip8ROM(filepath string) {
 		c8.memory[START_ADDRESS+uint(i)] = data[i]
 	}
 
-	c8.scrn.draw()
+	c8.Cycle()
+}
+
+/*
+When we talk about one cycle of this primitive CPU that we’re emulating, we’re talking about it doing three things:
+- Fetch the next instruction in the form of an opcode
+- Decode the instruction to determine what operation needs to occur
+- Execute the instruction
+*/
+func (c *chip8) Cycle() {
+	fmt.Println("MEMORY: ", c.memory)
+	fmt.Println("ALAN: ", c.memory[c.programCounter])
+
+	// Fetch
+	c.opcode = uint16(c.memory[c.programCounter])<<8 | uint16(c.memory[c.programCounter+1]) // TODO: TEST
+
+	// Increment the PC before we execute anything
+	c.programCounter += 2
+
+	// Decode and Execute
+	switch c.opcode & 0xF000 {
+	case 0x0000:
+		switch c.opcode & 0x000F {
+		case 0x0000:
+			c.op00E0()
+		case 0x000E:
+			c.op00EE()
+		}
+	case 0x1000:
+		c.op1nnn()
+	case 0x2000:
+		c.op2nnn()
+	case 0x3000:
+		c.op3xkk()
+	case 0x4000:
+		c.op4xkk()
+	case 0x5000:
+		c.op5xy0()
+	case 0x6000:
+		c.op6xkk()
+	case 0x7000:
+		c.op7xkk()
+	case 0x8000:
+		switch c.opcode & 0x000F {
+		case 0x0000:
+			c.op8xy0()
+		case 0x0001:
+			c.op8xy1()
+		case 0x0002:
+			c.op8xy2()
+		case 0x0003:
+			c.op8xy3()
+		case 0x0004:
+			c.op8xy4()
+		case 0x0005:
+			c.op8xy5()
+		case 0x0006:
+			c.op8xy6()
+		case 0x0007:
+			c.op8xy7()
+		case 0x000E:
+			c.op8xyE()
+		}
+	case 0x9000:
+		c.op9xy0()
+	case 0xA000:
+		c.opAnnn()
+	case 0xB000:
+		c.opBnnn()
+	case 0xC000:
+		c.opCxkk()
+	case 0xD000:
+		c.opDxyn()
+	case 0xE000:
+		switch c.opcode & 0x000F {
+		case 0x0001:
+			c.opExA1()
+		case 0x000E:
+			c.opEx9E()
+		}
+	case 0xF000:
+		switch c.opcode & 0x00FF {
+		case 0x0007:
+			c.opFx07()
+		case 0x000A:
+			c.opFx0A()
+		case 0x0015:
+			c.opFx15()
+		case 0x0018:
+			c.opFx18()
+		case 0x001E:
+			c.opFx1E()
+		case 0x0029:
+			c.opFx29()
+		case 0x0033:
+			c.opFx33()
+		case 0x0055:
+			c.opFx55()
+		case 0x0065:
+			c.opFx65()
+		}
+	default:
+		log.Fatal("cannot interpret instruction:", c.opcode)
+	}
+
+	// TODO: Use SDL to draw to the screen after each instruction
+	c.scrn.draw()
 }
 
 /*
