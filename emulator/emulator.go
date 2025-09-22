@@ -3,6 +3,7 @@ package emulator
 import (
 	"fmt"
 	"log"
+	"math/rand/v2"
 	"os"
 )
 
@@ -233,6 +234,17 @@ func (c *chip8) Cycle() {
 
 	// TODO: Use SDL to draw to the screen after each instruction
 	c.scrn.draw()
+
+	// Decrement the delay timer if it's been set
+	if c.delayTimer > 0 {
+		c.delayTimer -= 1
+	}
+
+	// Decrement the sound timer if it's been set
+	if c.soundTimer > 0 {
+		c.soundTimer -= 1
+	}
+
 }
 
 /*
@@ -696,4 +708,8 @@ func (c8 *chip8) opFx65() {
 	for i := byte(0); i <= vx; i++ {
 		c8.registers[i] = c8.memory[byte(c8.indexRegister)+i]
 	}
+}
+
+func randomByte() byte {
+	return byte(rand.IntN(255))
 }
