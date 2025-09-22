@@ -138,7 +138,6 @@ When we talk about one cycle of this primitive CPU that we’re emulating, we’
 */
 func (c *chip8) Cycle() {
 	fmt.Println("MEMORY: ", c.memory)
-	fmt.Println("ALAN: ", c.memory[c.programCounter])
 
 	// Fetch
 	c.opcode = uint16(c.memory[c.programCounter])<<8 | uint16(c.memory[c.programCounter+1]) // TODO: TEST
