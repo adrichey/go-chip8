@@ -5,6 +5,8 @@ import (
 	"log"
 	"math/rand/v2"
 	"os"
+
+	"github.com/adrichey/go-chip8/platform"
 )
 
 /*
@@ -55,10 +57,8 @@ type chip8 struct {
 	// Store the opcode for instructions
 	opcode uint16
 
-	// Keypad for input
-	keypad [16]byte
-
-	scrn screen
+	// Platform handles our input and display
+	platform platform.Platform
 }
 
 func newChip8() chip8 {
@@ -110,7 +110,7 @@ func newChip8() chip8 {
 
 	// TODO: Initialize keyboard
 
-	c8.scrn.reset()
+	c8.platform.Screen.Reset()
 
 	return c8
 }
@@ -233,7 +233,7 @@ func (c *chip8) Cycle() {
 	}
 
 	// TODO: Use SDL to draw to the screen after each instruction
-	c.scrn.draw()
+	c.platform.Screen.Draw()
 
 	// Decrement the delay timer if it's been set
 	if c.delayTimer > 0 {
@@ -261,7 +261,7 @@ https://github.com/mattmikolay/chip-8/wiki/CHIP%E2%80%908-Instruction-Set
 Clear the display
 */
 func (c8 *chip8) op00E0() {
-	c8.scrn.reset()
+	c8.platform.Screen.Reset()
 }
 
 /*
@@ -554,13 +554,13 @@ func (c8 *chip8) opDxyn() {
 		for col := uint16(0); col < 8; col++ {
 			// If pixel is on...
 			if (pixel & (0x80 >> col)) != 0 {
-				// And screen pizel is also on: collision
-				if c8.scrn.window[vy][vx] == 1 {
+				// And screen pixel is also on: collision
+				if c8.platform.Screen.Window[vy][vx] == 1 {
 					c8.registers[0xF] = 1
 				}
 
 				// XOR with the screen pixel with the sprite pixel
-				c8.scrn.window[vy][vx] ^= 1
+				c8.platform.Screen.Window[vy][vx] ^= 1
 			}
 		}
 	}
@@ -575,7 +575,7 @@ func (c8 *chip8) opEx9E() {
 	vx := byte((c8.opcode & 0x0F00) >> 8)
 	key := c8.registers[vx]
 
-	if c8.keypad[key] != 0 {
+	if c8.platform.Keypad[key] != 0 {
 		c8.programCounter += 2
 	}
 }
@@ -589,7 +589,7 @@ func (c8 *chip8) opExA1() {
 	vx := byte((c8.opcode & 0x0F00) >> 8)
 	key := c8.registers[vx]
 
-	if c8.keypad[key] == 0 {
+	if c8.platform.Keypad[key] == 0 {
 		c8.programCounter += 2
 	}
 }
@@ -612,7 +612,7 @@ This has the effect of running the same instruction repeatedly.
 func (c8 *chip8) opFx0A() {
 	vx := byte((c8.opcode & 0x0F00) >> 8)
 
-	for k, v := range c8.keypad {
+	for k, v := range c8.platform.Keypad {
 		if v != 0 {
 			c8.registers[vx] = byte(k)
 			return
