@@ -8,10 +8,19 @@ import (
 )
 
 func main() {
-	err := emulator.LoadChip8ROM("./test_opcode.ch8")
+	c8, err := emulator.NewChip8()
 	if err != nil {
 		log.Fatal(err)
+		return
 	}
+
+	err = c8.LoadChip8ROM("./test_opcode.ch8")
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+
+	c8.Run()
 
 	fmt.Println("EXITED")
 }

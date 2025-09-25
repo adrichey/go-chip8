@@ -1,7 +1,6 @@
 package emulator
 
 import (
-	"fmt"
 	"log"
 	"math/rand/v2"
 	"os"
@@ -82,13 +81,14 @@ type chip8 struct {
 	pixels [VIDEO_HEIGHT][VIDEO_WIDTH]uint32
 
 	// SDL2 specific properties
-	window   *sdl.Window
-	renderer *sdl.Renderer
-	texture  *sdl.Texture
-	rect     *sdl.Rect
+	window       *sdl.Window
+	renderer     *sdl.Renderer
+	texture      *sdl.Texture
+	rect         *sdl.Rect
+	pixelPointer unsafe.Pointer
 }
 
-func newChip8() (*chip8, error) {
+func NewChip8() (*chip8, error) {
 	c8 := chip8{}
 
 	for k := range c8.registers {
@@ -166,19 +166,15 @@ func newChip8() (*chip8, error) {
 	defer c8.texture.Destroy() // TODO: May need to move these to a specific "destructor" method
 
 	c8.rect = &sdl.Rect{X: 0, Y: 0, W: winWidth, H: winHeight}
+	c8.pixelPointer = unsafe.Pointer(&c8.pixels)
 
 	c8.op00E0()
 
 	return &c8, nil
 }
 
-func LoadChip8ROM(filepath string) error {
+func (c8 *chip8) LoadChip8ROM(filepath string) error {
 	data, err := os.ReadFile(filepath)
-	if err != nil {
-		return err
-	}
-
-	c8, err := newChip8()
 	if err != nil {
 		return err
 	}
@@ -254,8 +250,6 @@ When we talk about one cycle of this primitive CPU that we’re emulating, we’
 - Execute the instruction
 */
 func (c *chip8) cycle() {
-	fmt.Println("MEMORY: ", c.memory)
-
 	// Fetch
 	c.opcode = uint16(c.memory[c.programCounter])<<8 | uint16(c.memory[c.programCounter+1]) // TODO: TEST
 
@@ -364,7 +358,7 @@ func (c8 *chip8) update() {
 	videoPitch := len(c8.pixels[0]) * VIDEO_WIDTH
 
 	// TODO: May need to change the following call: https://github.com/veandco/go-sdl2/blob/7f43f67a3a12d53b3d69f142b9bb67678081313a/sdl/render.go#L575
-	c8.texture.Update(c8.rect, unsafe.Pointer(&c8.pixels), videoPitch)
+	c8.texture.Update(c8.rect, c8.pixelPointer, videoPitch)
 	c8.renderer.Clear()
 	c8.renderer.Copy(c8.texture, nil, nil)
 	c8.renderer.Present()
@@ -697,6 +691,7 @@ If a sprite pixel is on then there may be a collision with what’s already bein
 Then we can just XOR the screen pixel with 0xFFFFFFFF to essentially XOR it with the sprite pixel (which we now know is on). We can’t XOR directly because the sprite pixel is either 1 or 0 while our video pixel is either 0x00000000 or 0xFFFFFFFF.
 TODO: Double check this
 */
+// TODO: FIX THIS FOR NEW SCREEN IMPLEMENTATION
 func (c8 *chip8) opDxyn() {
 	vx := byte((c8.opcode & 0x0F00) >> 8)
 	vy := byte((c8.opcode & 0x00F0) >> 4)
