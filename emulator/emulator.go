@@ -5,7 +5,6 @@ import (
 	"math/rand/v2"
 	"os"
 	"time"
-	"unsafe"
 
 	"github.com/veandco/go-sdl2/sdl"
 )
@@ -27,6 +26,7 @@ const FONTSET_START_ADDRESS uint = 0x50
 
 const VIDEO_HEIGHT = 32
 const VIDEO_WIDTH = 64
+const VIDEO_SCALE = 10
 const WINDOW_TITLE = "Chip8 Emulator" // TODO: Add file to this??
 
 type chip8 struct {
@@ -81,11 +81,8 @@ type chip8 struct {
 	pixels [VIDEO_HEIGHT][VIDEO_WIDTH]uint32
 
 	// SDL2 specific properties
-	window       *sdl.Window
-	renderer     *sdl.Renderer
-	texture      *sdl.Texture
-	rect         *sdl.Rect
-	pixelPointer unsafe.Pointer
+	window  *sdl.Window
+	surface *sdl.Surface
 }
 
 func NewChip8() (*chip8, error) {
@@ -139,38 +136,27 @@ func NewChip8() (*chip8, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer sdl.Quit() // TODO: May need to move these to a specific "destructor" method
 
-	var winWidth, winHeight int32 = VIDEO_WIDTH * 100, VIDEO_HEIGHT * 100
-
-	window, err := sdl.CreateWindow(WINDOW_TITLE, sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED, winWidth, winHeight, sdl.WINDOW_SHOWN)
+	window, err := sdl.CreateWindow(WINDOW_TITLE, sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED, VIDEO_WIDTH*VIDEO_SCALE, VIDEO_HEIGHT*VIDEO_SCALE, sdl.WINDOW_SHOWN)
 	if err != nil {
 		return nil, err
 	}
 	c8.window = window
-	defer c8.window.Destroy() // TODO: May need to move these to a specific "destructor" method
 
-	renderer, err := sdl.CreateRenderer(window, -1, sdl.RENDERER_ACCELERATED)
+	surface, err := window.GetSurface()
 	if err != nil {
 		return nil, err
 	}
-	c8.renderer = renderer
-	c8.renderer.Clear()
-	defer c8.renderer.Destroy() // TODO: May need to move these to a specific "destructor" method
-
-	texture, err := c8.renderer.CreateTexture(sdl.PIXELFORMAT_RGBA8888, sdl.TEXTUREACCESS_STREAMING, VIDEO_WIDTH, VIDEO_HEIGHT)
-	if err != nil {
-		return nil, err
-	}
-	c8.texture = texture
-	defer c8.texture.Destroy() // TODO: May need to move these to a specific "destructor" method
-
-	c8.rect = &sdl.Rect{X: 0, Y: 0, W: winWidth, H: winHeight}
-	c8.pixelPointer = unsafe.Pointer(&c8.pixels)
+	c8.surface = surface
 
 	c8.op00E0()
 
 	return &c8, nil
+}
+
+func (c8 *chip8) Destroy() {
+	c8.window.Destroy()
+	sdl.Quit()
 }
 
 func (c8 *chip8) LoadChip8ROM(filepath string) error {
@@ -355,13 +341,24 @@ func (c *chip8) cycle() {
 
 // Update the display
 func (c8 *chip8) update() {
-	videoPitch := len(c8.pixels[0]) * VIDEO_WIDTH
+	// Clear surface
+	c8.surface.FillRect(nil, 0)
 
-	// TODO: May need to change the following call: https://github.com/veandco/go-sdl2/blob/7f43f67a3a12d53b3d69f142b9bb67678081313a/sdl/render.go#L575
-	c8.texture.Update(c8.rect, c8.pixelPointer, videoPitch)
-	c8.renderer.Clear()
-	c8.renderer.Copy(c8.texture, nil, nil)
-	c8.renderer.Present()
+	// Draw on the surface
+	for y := range c8.pixels {
+		for x := range c8.pixels[y] {
+			if c8.pixels[y][x] != 0 {
+				xPos := int32(x * VIDEO_SCALE)
+				yPos := int32(y * VIDEO_SCALE)
+				pixel := &sdl.Rect{X: xPos, Y: yPos, W: VIDEO_SCALE, H: VIDEO_SCALE}
+				color := c8.pixels[y][x]
+
+				c8.surface.FillRect(pixel, color)
+			}
+		}
+	}
+
+	c8.window.UpdateSurface()
 }
 
 /*

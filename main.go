@@ -19,6 +19,7 @@ func main() {
 		log.Fatal(err)
 		return
 	}
+	defer c8.Destroy()
 
 	c8.Run()
 
