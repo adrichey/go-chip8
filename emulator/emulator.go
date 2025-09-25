@@ -445,7 +445,7 @@ func (c8 *chip8) op2nnn() {
 /*
 3xkk - SE Vx, byte
 Skip next instruction if Vx = kk.
-Since our PC has already been incremented by 2 in Cycle(), we can just increment by 2 again to skip the next instruction.
+Since our PC has already been incremented by 2 in cycle(), we can just increment by 2 again to skip the next instruction.
 */
 func (c8 *chip8) op3xkk() {
 	vx := byte((c8.opcode & 0x0F00) >> 8)
@@ -459,7 +459,7 @@ func (c8 *chip8) op3xkk() {
 /*
 4xkk - SNE Vx, byte
 Skip next instruction if Vx != kk.
-Since our PC has already been incremented by 2 in Cycle(), we can just increment by 2 again to skip the next instruction.
+Since our PC has already been incremented by 2 in cycle(), we can just increment by 2 again to skip the next instruction.
 */
 func (c8 *chip8) op4xkk() {
 	vx := byte((c8.opcode & 0x0F00) >> 8)
@@ -473,7 +473,7 @@ func (c8 *chip8) op4xkk() {
 /*
 5xy0 - SE Vx, Vy
 Skip next instruction if Vx = Vy.
-Since our PC has already been incremented by 2 in Cycle(), we can just increment by 2 again to skip the next instruction.
+Since our PC has already been incremented by 2 in cycle(), we can just increment by 2 again to skip the next instruction.
 */
 func (c8 *chip8) op5xy0() {
 	vx := byte((c8.opcode & 0x0F00) >> 8)
@@ -640,7 +640,7 @@ func (c8 *chip8) op8xyE() {
 /*
 9xy0 - SNE Vx, Vy
 Skip next instruction if Vx != Vy.
-Since our PC has already been incremented by 2 in Cycle(), we can just increment by 2 again to skip the next instruction.
+Since our PC has already been incremented by 2 in cycle(), we can just increment by 2 again to skip the next instruction.
 */
 func (c8 *chip8) op9xy0() {
 	vx := byte((c8.opcode & 0x0F00) >> 8)
@@ -716,7 +716,7 @@ func (c8 *chip8) opDxyn() {
 /*
 Ex9E - SKP Vx
 Skip next instruction if key with the value of Vx is pressed.
-Since our PC has already been incremented by 2 in Cycle(), we can just increment by 2 again to skip the next instruction.
+Since our PC has already been incremented by 2 in cycle(), we can just increment by 2 again to skip the next instruction.
 */
 func (c8 *chip8) opEx9E() {
 	vx := byte((c8.opcode & 0x0F00) >> 8)
@@ -730,7 +730,7 @@ func (c8 *chip8) opEx9E() {
 /*
 ExA1 - SKNP Vx
 Skip next instruction if key with the value of Vx is not pressed.
-Since our PC has already been incremented by 2 in Cycle(), we can just increment by 2 again to skip the next instruction.
+Since our PC has already been incremented by 2 in cycle(), we can just increment by 2 again to skip the next instruction.
 */
 func (c8 *chip8) opExA1() {
 	vx := byte((c8.opcode & 0x0F00) >> 8)
