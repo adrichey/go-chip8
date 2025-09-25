@@ -6,7 +6,7 @@ import (
 	"math/rand/v2"
 	"os"
 
-	"github.com/adrichey/go-chip8/platform"
+	"github.com/veandco/go-sdl2/sdl"
 )
 
 /*
@@ -23,6 +23,10 @@ The address space is segmented into three sections:
 */
 const START_ADDRESS uint = 0x200
 const FONTSET_START_ADDRESS uint = 0x50
+
+const VIDEO_HEIGHT = 32
+const VIDEO_WIDTH = 64
+const WINDOW_TITLE = "Chip8 Emulator" // TODO: Add file to this??
 
 type chip8 struct {
 	// Chip8 has 16 8-bit registers
@@ -57,11 +61,30 @@ type chip8 struct {
 	// Store the opcode for instructions
 	opcode uint16
 
-	// Platform handles our input and display
-	platform platform.Platform
+	/*
+		Key Mappings:
+		Keypad       Keyboard
+		+-+-+-+-+    +-+-+-+-+
+		|1|2|3|C|    |1|2|3|4|
+		+-+-+-+-+    +-+-+-+-+
+		|4|5|6|D|    |Q|W|E|R|
+		+-+-+-+-+ => +-+-+-+-+
+		|7|8|9|E|    |A|S|D|F|
+		+-+-+-+-+    +-+-+-+-+
+		|A|0|B|F|    |Z|X|C|V|
+		+-+-+-+-+    +-+-+-+-+
+	*/
+	keypad [16]byte
+
+	// Holds our screen pixels
+	pixels [VIDEO_HEIGHT][VIDEO_WIDTH]uint32
+
+	// SDL2 specific properties
+	window   *sdl.Window
+	renderer *sdl.Renderer
 }
 
-func newChip8() chip8 {
+func newChip8() (*chip8, error) {
 	c8 := chip8{}
 
 	for k := range c8.registers {
@@ -108,11 +131,32 @@ func newChip8() chip8 {
 
 	c8.programCounter = uint16(START_ADDRESS)
 
-	// TODO: Initialize keyboard
+	err := sdl.Init(sdl.INIT_EVERYTHING)
+	if err != nil {
+		return nil, err
+	}
+	defer sdl.Quit() // TODO: May need to move these to a specific "destructor" method
 
-	c8.platform.Screen.Reset()
+	var winWidth, winHeight int32 = VIDEO_WIDTH * 100, VIDEO_HEIGHT * 100
 
-	return c8
+	window, err := sdl.CreateWindow(WINDOW_TITLE, sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED, winWidth, winHeight, sdl.WINDOW_SHOWN)
+	if err != nil {
+		return nil, err
+	}
+	c8.window = window
+	defer c8.window.Destroy() // TODO: May need to move these to a specific "destructor" method
+
+	renderer, err := sdl.CreateRenderer(window, -1, sdl.RENDERER_ACCELERATED)
+	if err != nil {
+		return nil, err
+	}
+	c8.renderer = renderer
+	c8.renderer.Clear()
+	defer c8.renderer.Destroy() // TODO: May need to move these to a specific "destructor" method
+
+	c8.op00E0()
+
+	return &c8, nil
 }
 
 func LoadChip8ROM(filepath string) {
@@ -128,6 +172,63 @@ func LoadChip8ROM(filepath string) {
 	}
 
 	c8.Cycle()
+}
+
+func (c8 *chip8) ProcessInput() bool {
+	quit := false
+
+	for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
+		switch t := event.(type) {
+		case *sdl.QuitEvent:
+			quit = true
+		case sdl.KeyboardEvent:
+			var s byte = 0
+			if t.Type == sdl.KEYDOWN {
+				s = 1
+			}
+
+			switch t.Keysym.Sym {
+			case sdl.K_ESCAPE:
+				if s == 1 {
+					quit = true
+				}
+			case sdl.K_x:
+				c8.Keypad[0] = s
+			case sdl.K_1:
+				c8.Keypad[1] = s
+			case sdl.K_2:
+				c8.Keypad[2] = s
+			case sdl.K_3:
+				c8.Keypad[3] = s
+			case sdl.K_q:
+				c8.Keypad[4] = s
+			case sdl.K_w:
+				c8.Keypad[5] = s
+			case sdl.K_e:
+				c8.Keypad[6] = s
+			case sdl.K_a:
+				c8.Keypad[7] = s
+			case sdl.K_s:
+				c8.Keypad[8] = s
+			case sdl.K_d:
+				c8.Keypad[9] = s
+			case sdl.K_z:
+				c8.Keypad[0xA] = s
+			case sdl.K_c:
+				c8.Keypad[0xB] = s
+			case sdl.K_4:
+				c8.Keypad[0xC] = s
+			case sdl.K_r:
+				c8.Keypad[0xD] = s
+			case sdl.K_f:
+				c8.Keypad[0xE] = s
+			case sdl.K_v:
+				c8.Keypad[0xF] = s
+			}
+		}
+	}
+
+	return quit
 }
 
 /*
@@ -231,9 +332,6 @@ func (c *chip8) Cycle() {
 		log.Fatal("cannot interpret instruction:", c.opcode)
 	}
 
-	// TODO: Use SDL to draw to the screen after each instruction
-	c.platform.Screen.Draw()
-
 	// Decrement the delay timer if it's been set
 	if c.delayTimer > 0 {
 		c.delayTimer -= 1
@@ -243,7 +341,6 @@ func (c *chip8) Cycle() {
 	if c.soundTimer > 0 {
 		c.soundTimer -= 1
 	}
-
 }
 
 /*
@@ -260,7 +357,11 @@ https://github.com/mattmikolay/chip-8/wiki/CHIP%E2%80%908-Instruction-Set
 Clear the display
 */
 func (c8 *chip8) op00E0() {
-	c8.platform.Screen.Reset()
+	for k := range c8.pixels {
+		for i := range c8.pixels[k] {
+			c8.pixels[k][i] = 0x00000000
+		}
+	}
 }
 
 /*
@@ -554,12 +655,12 @@ func (c8 *chip8) opDxyn() {
 			// If pixel is on...
 			if (pixel & (0x80 >> col)) != 0 {
 				// And screen pixel is also on: collision
-				if c8.platform.Screen.Window[vy][vx] == 1 {
+				if c8.pixels[vy][vx] == 1 {
 					c8.registers[0xF] = 1
 				}
 
 				// XOR with the screen pixel with the sprite pixel
-				c8.platform.Screen.Window[vy][vx] ^= 1
+				c8.pixels[vy][vx] ^= 1
 			}
 		}
 	}
@@ -574,7 +675,7 @@ func (c8 *chip8) opEx9E() {
 	vx := byte((c8.opcode & 0x0F00) >> 8)
 	key := c8.registers[vx]
 
-	if c8.platform.Keypad[key] != 0 {
+	if c8.keypad[key] != 0 {
 		c8.programCounter += 2
 	}
 }
@@ -588,7 +689,7 @@ func (c8 *chip8) opExA1() {
 	vx := byte((c8.opcode & 0x0F00) >> 8)
 	key := c8.registers[vx]
 
-	if c8.platform.Keypad[key] == 0 {
+	if c8.keypad[key] == 0 {
 		c8.programCounter += 2
 	}
 }
@@ -611,7 +712,7 @@ This has the effect of running the same instruction repeatedly.
 func (c8 *chip8) opFx0A() {
 	vx := byte((c8.opcode & 0x0F00) >> 8)
 
-	for k, v := range c8.platform.Keypad {
+	for k, v := range c8.keypad {
 		if v != 0 {
 			c8.registers[vx] = byte(k)
 			return
