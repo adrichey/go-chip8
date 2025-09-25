@@ -5,6 +5,8 @@ import (
 	"log"
 	"math/rand/v2"
 	"os"
+	"time"
+	"unsafe"
 
 	"github.com/veandco/go-sdl2/sdl"
 )
@@ -82,6 +84,8 @@ type chip8 struct {
 	// SDL2 specific properties
 	window   *sdl.Window
 	renderer *sdl.Renderer
+	texture  *sdl.Texture
+	rect     *sdl.Rect
 }
 
 func newChip8() (*chip8, error) {
@@ -154,34 +158,46 @@ func newChip8() (*chip8, error) {
 	c8.renderer.Clear()
 	defer c8.renderer.Destroy() // TODO: May need to move these to a specific "destructor" method
 
+	texture, err := c8.renderer.CreateTexture(sdl.PIXELFORMAT_RGBA8888, sdl.TEXTUREACCESS_STREAMING, VIDEO_WIDTH, VIDEO_HEIGHT)
+	if err != nil {
+		return nil, err
+	}
+	c8.texture = texture
+	defer c8.texture.Destroy() // TODO: May need to move these to a specific "destructor" method
+
+	c8.rect = &sdl.Rect{X: 0, Y: 0, W: winWidth, H: winHeight}
+
 	c8.op00E0()
 
 	return &c8, nil
 }
 
-func LoadChip8ROM(filepath string) {
+func LoadChip8ROM(filepath string) error {
 	data, err := os.ReadFile(filepath)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
-	c8 := newChip8()
+	c8, err := newChip8()
+	if err != nil {
+		return err
+	}
 
 	for i := 0; i < len(data); i++ {
 		c8.memory[START_ADDRESS+uint(i)] = data[i]
 	}
 
-	c8.Cycle()
+	return nil
 }
 
-func (c8 *chip8) ProcessInput() bool {
+func (c8 *chip8) processInput() bool {
 	quit := false
 
 	for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 		switch t := event.(type) {
 		case *sdl.QuitEvent:
 			quit = true
-		case sdl.KeyboardEvent:
+		case *sdl.KeyboardEvent:
 			var s byte = 0
 			if t.Type == sdl.KEYDOWN {
 				s = 1
@@ -193,37 +209,37 @@ func (c8 *chip8) ProcessInput() bool {
 					quit = true
 				}
 			case sdl.K_x:
-				c8.Keypad[0] = s
+				c8.keypad[0] = s
 			case sdl.K_1:
-				c8.Keypad[1] = s
+				c8.keypad[1] = s
 			case sdl.K_2:
-				c8.Keypad[2] = s
+				c8.keypad[2] = s
 			case sdl.K_3:
-				c8.Keypad[3] = s
+				c8.keypad[3] = s
 			case sdl.K_q:
-				c8.Keypad[4] = s
+				c8.keypad[4] = s
 			case sdl.K_w:
-				c8.Keypad[5] = s
+				c8.keypad[5] = s
 			case sdl.K_e:
-				c8.Keypad[6] = s
+				c8.keypad[6] = s
 			case sdl.K_a:
-				c8.Keypad[7] = s
+				c8.keypad[7] = s
 			case sdl.K_s:
-				c8.Keypad[8] = s
+				c8.keypad[8] = s
 			case sdl.K_d:
-				c8.Keypad[9] = s
+				c8.keypad[9] = s
 			case sdl.K_z:
-				c8.Keypad[0xA] = s
+				c8.keypad[0xA] = s
 			case sdl.K_c:
-				c8.Keypad[0xB] = s
+				c8.keypad[0xB] = s
 			case sdl.K_4:
-				c8.Keypad[0xC] = s
+				c8.keypad[0xC] = s
 			case sdl.K_r:
-				c8.Keypad[0xD] = s
+				c8.keypad[0xD] = s
 			case sdl.K_f:
-				c8.Keypad[0xE] = s
+				c8.keypad[0xE] = s
 			case sdl.K_v:
-				c8.Keypad[0xF] = s
+				c8.keypad[0xF] = s
 			}
 		}
 	}
@@ -237,7 +253,7 @@ When we talk about one cycle of this primitive CPU that we’re emulating, we’
 - Decode the instruction to determine what operation needs to occur
 - Execute the instruction
 */
-func (c *chip8) Cycle() {
+func (c *chip8) cycle() {
 	fmt.Println("MEMORY: ", c.memory)
 
 	// Fetch
@@ -340,6 +356,45 @@ func (c *chip8) Cycle() {
 	// Decrement the sound timer if it's been set
 	if c.soundTimer > 0 {
 		c.soundTimer -= 1
+	}
+}
+
+// Update the display
+func (c8 *chip8) update() {
+	videoPitch := len(c8.pixels[0]) * VIDEO_WIDTH
+
+	// TODO: May need to change the following call: https://github.com/veandco/go-sdl2/blob/7f43f67a3a12d53b3d69f142b9bb67678081313a/sdl/render.go#L575
+	c8.texture.Update(c8.rect, unsafe.Pointer(&c8.pixels), videoPitch)
+	c8.renderer.Clear()
+	c8.renderer.Copy(c8.texture, nil, nil)
+	c8.renderer.Present()
+}
+
+/*
+Our main loop that will call our cycle() receiver method continuously until exit, handle input, and render with SDL.
+
+With each iteration of the loop: input from the keyboard is parsed, a delay is checked to see if enough time has
+passed between cycles and a cycle is run if so, and the screen is updated.
+
+Due to the way SDL works, we can simply pass in the video parameter to SDL and it will scale it automatically for
+us to the size of our window texture.
+*/
+func (c8 *chip8) Run() {
+	lastCycleTime := time.Now()
+	quit := false
+
+	for !quit {
+		quit = c8.processInput()
+
+		d := float64(time.Since(lastCycleTime).Milliseconds())
+
+		var cycleDelay float64 = 1 // TODO: May need to convert this to a command line arg if timing feels off between ROMs
+
+		if d > cycleDelay {
+			lastCycleTime = time.Now()
+			c8.cycle()
+			c8.update()
+		}
 	}
 }
 
