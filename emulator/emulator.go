@@ -1,6 +1,7 @@
 package emulator
 
 import (
+	"io"
 	"log"
 	"math/rand/v2"
 	"os"
@@ -160,13 +161,22 @@ func (c8 *chip8) Destroy() {
 }
 
 func (c8 *chip8) LoadChip8ROM(filepath string) error {
-	data, err := os.ReadFile(filepath)
+	// Open the file
+	file, err := os.Open(filepath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	// Read the entire file contents
+	buffer, err := io.ReadAll(file)
 	if err != nil {
 		return err
 	}
 
-	for i := 0; i < len(data); i++ {
-		c8.memory[START_ADDRESS+uint(i)] = data[i]
+	// Load the ROM contents into the Chip8's memory, starting at 0x200
+	for i, b := range buffer {
+		c8.memory[int(START_ADDRESS)+i] = b
 	}
 
 	return nil
@@ -371,6 +381,16 @@ Due to the way SDL works, we can simply pass in the video parameter to SDL and i
 us to the size of our window texture.
 */
 func (c8 *chip8) Run() {
+	// TODO
+	// fmt.Println("MEMORY:", c8.memory[START_ADDRESS:])
+	// pc1 := uint16(c8.memory[c8.programCounter]) << 8
+	// pc2 := uint16(c8.memory[c8.programCounter+1]) // TODO: TEST
+	// pc3 := pc1 | pc2
+	// fmt.Printf("PC1: %16b\n", pc1)
+	// fmt.Printf("PC2: %16b\n", pc2)
+	// fmt.Printf("PC3: %16b\n", pc3)
+	// fmt.Println(pc3 & 0xF000)
+
 	lastCycleTime := time.Now()
 	quit := false
 

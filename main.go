@@ -14,7 +14,7 @@ func main() {
 		return
 	}
 
-	err = c8.LoadChip8ROM("./test_opcode.ch8")
+	err = c8.LoadChip8ROM("./1-chip8-logo.ch8")
 	if err != nil {
 		log.Fatal(err)
 		return
