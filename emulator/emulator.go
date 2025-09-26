@@ -20,15 +20,14 @@ The address space is segmented into three sections:
 
 	0x000-0x1FF: Originally reserved for the CHIP-8 interpreter, but in our modern emulator we will just never write to or read from that area. Except for...
 	0x050-0x0A0: Storage space for the 16 built-in characters (0 through F), which we will need to manually put into our memory because ROMs will be looking for those characters.
-	0x200-0xFFF: Instructions from the ROM will be stored starting at 0x200, and anything left after the ROM’s space is free to use.
+	0x200-0xFFF: Instructions from the ROM will be stored starting at 0x200, and anything left after the ROM's space is free to use.
 */
 const START_ADDRESS uint = 0x200
 const FONTSET_START_ADDRESS uint = 0x50
-
 const VIDEO_HEIGHT = 32
 const VIDEO_WIDTH = 64
 const VIDEO_SCALE = 10
-const WINDOW_TITLE = "Chip8 Emulator" // TODO: Add file to this??
+const WINDOW_TITLE = "Chip8 Emulator"
 
 type chip8 struct {
 	// Chip8 has 16 8-bit registers
@@ -79,7 +78,7 @@ type chip8 struct {
 	keypad [16]byte
 
 	// Holds our screen pixels
-	pixels [VIDEO_HEIGHT][VIDEO_WIDTH]uint32
+	pixels [VIDEO_WIDTH * VIDEO_HEIGHT]uint32
 
 	// SDL2 specific properties
 	window  *sdl.Window
@@ -161,14 +160,12 @@ func (c8 *chip8) Destroy() {
 }
 
 func (c8 *chip8) LoadChip8ROM(filepath string) error {
-	// Open the file
 	file, err := os.Open(filepath)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 
-	// Read the entire file contents
 	buffer, err := io.ReadAll(file)
 	if err != nil {
 		return err
@@ -240,112 +237,112 @@ func (c8 *chip8) processInput() bool {
 }
 
 /*
-When we talk about one cycle of this primitive CPU that we’re emulating, we’re talking about it doing three things:
+When we talk about one cycle of this primitive CPU that we're emulating, we're talking about it doing three things:
 - Fetch the next instruction in the form of an opcode
 - Decode the instruction to determine what operation needs to occur
 - Execute the instruction
 */
-func (c *chip8) cycle() {
+func (c8 *chip8) cycle() {
 	// Fetch
-	c.opcode = uint16(c.memory[c.programCounter])<<8 | uint16(c.memory[c.programCounter+1]) // TODO: TEST
+	c8.opcode = uint16(c8.memory[c8.programCounter])<<8 | uint16(c8.memory[c8.programCounter+1])
 
 	// Increment the PC before we execute anything
-	c.programCounter += 2
+	c8.programCounter += 2
 
 	// Decode and Execute
-	switch c.opcode & 0xF000 {
+	switch c8.opcode & 0xF000 {
 	case 0x0000:
-		switch c.opcode & 0x000F {
+		switch c8.opcode & 0x000F {
 		case 0x0000:
-			c.op00E0()
+			c8.op00E0()
 		case 0x000E:
-			c.op00EE()
+			c8.op00EE()
 		}
 	case 0x1000:
-		c.op1nnn()
+		c8.op1nnn()
 	case 0x2000:
-		c.op2nnn()
+		c8.op2nnn()
 	case 0x3000:
-		c.op3xkk()
+		c8.op3xkk()
 	case 0x4000:
-		c.op4xkk()
+		c8.op4xkk()
 	case 0x5000:
-		c.op5xy0()
+		c8.op5xy0()
 	case 0x6000:
-		c.op6xkk()
+		c8.op6xkk()
 	case 0x7000:
-		c.op7xkk()
+		c8.op7xkk()
 	case 0x8000:
-		switch c.opcode & 0x000F {
+		switch c8.opcode & 0x000F {
 		case 0x0000:
-			c.op8xy0()
+			c8.op8xy0()
 		case 0x0001:
-			c.op8xy1()
+			c8.op8xy1()
 		case 0x0002:
-			c.op8xy2()
+			c8.op8xy2()
 		case 0x0003:
-			c.op8xy3()
+			c8.op8xy3()
 		case 0x0004:
-			c.op8xy4()
+			c8.op8xy4()
 		case 0x0005:
-			c.op8xy5()
+			c8.op8xy5()
 		case 0x0006:
-			c.op8xy6()
+			c8.op8xy6()
 		case 0x0007:
-			c.op8xy7()
+			c8.op8xy7()
 		case 0x000E:
-			c.op8xyE()
+			c8.op8xyE()
 		}
 	case 0x9000:
-		c.op9xy0()
+		c8.op9xy0()
 	case 0xA000:
-		c.opAnnn()
+		c8.opAnnn()
 	case 0xB000:
-		c.opBnnn()
+		c8.opBnnn()
 	case 0xC000:
-		c.opCxkk()
+		c8.opCxkk()
 	case 0xD000:
-		c.opDxyn()
+		c8.opDxyn()
 	case 0xE000:
-		switch c.opcode & 0x000F {
+		switch c8.opcode & 0x000F {
 		case 0x0001:
-			c.opExA1()
+			c8.opExA1()
 		case 0x000E:
-			c.opEx9E()
+			c8.opEx9E()
 		}
 	case 0xF000:
-		switch c.opcode & 0x00FF {
+		switch c8.opcode & 0x00FF {
 		case 0x0007:
-			c.opFx07()
+			c8.opFx07()
 		case 0x000A:
-			c.opFx0A()
+			c8.opFx0A()
 		case 0x0015:
-			c.opFx15()
+			c8.opFx15()
 		case 0x0018:
-			c.opFx18()
+			c8.opFx18()
 		case 0x001E:
-			c.opFx1E()
+			c8.opFx1E()
 		case 0x0029:
-			c.opFx29()
+			c8.opFx29()
 		case 0x0033:
-			c.opFx33()
+			c8.opFx33()
 		case 0x0055:
-			c.opFx55()
+			c8.opFx55()
 		case 0x0065:
-			c.opFx65()
+			c8.opFx65()
 		}
 	default:
-		log.Fatal("cannot interpret instruction:", c.opcode)
+		log.Fatal("cannot interpret instruction:", c8.opcode)
 	}
 
 	// Decrement the delay timer if it's been set
-	if c.delayTimer > 0 {
-		c.delayTimer -= 1
+	if c8.delayTimer > 0 {
+		c8.delayTimer -= 1
 	}
 
 	// Decrement the sound timer if it's been set
-	if c.soundTimer > 0 {
-		c.soundTimer -= 1
+	if c8.soundTimer > 0 {
+		c8.soundTimer -= 1
 	}
 }
 
@@ -355,17 +352,18 @@ func (c8 *chip8) update() {
 	c8.surface.FillRect(nil, 0)
 
 	// Draw on the surface
-	for y := range c8.pixels {
-		for x := range c8.pixels[y] {
-			if c8.pixels[y][x] != 0 {
-				xPos := int32(x * VIDEO_SCALE)
-				yPos := int32(y * VIDEO_SCALE)
-				pixel := &sdl.Rect{X: xPos, Y: yPos, W: VIDEO_SCALE, H: VIDEO_SCALE}
-				color := c8.pixels[y][x]
-
-				c8.surface.FillRect(pixel, color)
-			}
+	row := 0
+	for k, color := range c8.pixels {
+		col := k % VIDEO_WIDTH
+		if col == 0 && k != 0 {
+			row++
 		}
+
+		yPos := int32(row * VIDEO_SCALE)
+		xPos := int32(col * VIDEO_SCALE)
+		pixel := &sdl.Rect{X: xPos, Y: yPos, W: VIDEO_SCALE, H: VIDEO_SCALE}
+
+		c8.surface.FillRect(pixel, color)
 	}
 
 	c8.window.UpdateSurface()
@@ -376,21 +374,8 @@ Our main loop that will call our cycle() receiver method continuously until exit
 
 With each iteration of the loop: input from the keyboard is parsed, a delay is checked to see if enough time has
 passed between cycles and a cycle is run if so, and the screen is updated.
-
-Due to the way SDL works, we can simply pass in the video parameter to SDL and it will scale it automatically for
-us to the size of our window texture.
 */
 func (c8 *chip8) Run() {
-	// TODO
-	// fmt.Println("MEMORY:", c8.memory[START_ADDRESS:])
-	// pc1 := uint16(c8.memory[c8.programCounter]) << 8
-	// pc2 := uint16(c8.memory[c8.programCounter+1]) // TODO: TEST
-	// pc3 := pc1 | pc2
-	// fmt.Printf("PC1: %16b\n", pc1)
-	// fmt.Printf("PC2: %16b\n", pc2)
-	// fmt.Printf("PC3: %16b\n", pc3)
-	// fmt.Println(pc3 & 0xF000)
-
 	lastCycleTime := time.Now()
 	quit := false
 
@@ -399,7 +384,7 @@ func (c8 *chip8) Run() {
 
 		d := float64(time.Since(lastCycleTime).Milliseconds())
 
-		var cycleDelay float64 = 1 // TODO: May need to convert this to a command line arg if timing feels off between ROMs
+		var cycleDelay float64 = 1 // TODO: Add a flag to control this
 
 		if d > cycleDelay {
 			lastCycleTime = time.Now()
@@ -424,9 +409,7 @@ Clear the display
 */
 func (c8 *chip8) op00E0() {
 	for k := range c8.pixels {
-		for i := range c8.pixels[k] {
-			c8.pixels[k][i] = 0x00000000
-		}
+		c8.pixels[k] = 0x00000000
 	}
 }
 
@@ -443,7 +426,7 @@ func (c8 *chip8) op00EE() {
 1nnn: JP addr
 Jump to location nnn.
 The interpreter sets the program counter to nnn.
-A jump doesn’t remember its origin, so no stack interaction required.
+A jump doesn't remember its origin, so no stack interaction required.
 */
 func (c8 *chip8) op1nnn() {
 	// Use bitwise AND to find our jump location in our memory array
@@ -704,30 +687,36 @@ func (c8 *chip8) opCxkk() {
 Dxyn - DRW Vx, Vy, nibble
 Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision.
 We iterate over the sprite, row by row and column by column. We know there are eight columns because a sprite is guaranteed to be eight pixels wide.
-If a sprite pixel is on then there may be a collision with what’s already being displayed, so we check if our screen pixel in the same location is set. If so we must set the VF register to express collision.
-Then we can just XOR the screen pixel with 0xFFFFFFFF to essentially XOR it with the sprite pixel (which we now know is on). We can’t XOR directly because the sprite pixel is either 1 or 0 while our video pixel is either 0x00000000 or 0xFFFFFFFF.
-TODO: Double check this
+If a sprite pixel is on then there may be a collision with what's already being displayed, so we check if our screen pixel in the same location is set. If so we must set the VF register to express collision.
+Then we can just XOR the screen pixel with 0xFFFFFFFF to essentially XOR it with the sprite pixel (which we now know is on). We can't XOR directly because the sprite pixel is either 1 or 0 while our video pixel is either 0x00000000 or 0xFFFFFFFF.
 */
-// TODO: FIX THIS FOR NEW SCREEN IMPLEMENTATION
 func (c8 *chip8) opDxyn() {
 	vx := byte((c8.opcode & 0x0F00) >> 8)
 	vy := byte((c8.opcode & 0x00F0) >> 4)
 	height := uint16(c8.opcode & 0x000F)
-	var pixel uint16
+
+	// Wrap if going beyond screen boundaries
+	xPos := c8.registers[vx] % VIDEO_WIDTH
+	yPos := c8.registers[vy] % VIDEO_HEIGHT
 
 	c8.registers[0xF] = 0
+
 	for row := uint16(0); row < height; row++ {
-		pixel = uint16(c8.memory[c8.indexRegister+row])
-		for col := uint16(0); col < 8; col++ {
-			// If pixel is on...
-			if (pixel & (0x80 >> col)) != 0 {
-				// And screen pixel is also on: collision
-				if c8.pixels[vy][vx] == 1 {
+		spriteByte := c8.memory[c8.indexRegister+row]
+
+		for col := byte(0); col < 8; col++ {
+			spritePixel := spriteByte & (0x80 >> col)
+			screenPixelIndex := (uint16(yPos)+uint16(row))*VIDEO_WIDTH + (uint16(xPos) + uint16(col))
+
+			// Sprite pixel is on
+			if spritePixel != 0 {
+				// Screen pixel also on - collision
+				if c8.pixels[screenPixelIndex] == 0xFFFFFFFF {
 					c8.registers[0xF] = 1
 				}
 
-				// XOR with the screen pixel with the sprite pixel
-				c8.pixels[vy][vx] ^= 1
+				// Effectively XOR with the sprite pixel
+				c8.pixels[screenPixelIndex] ^= 0xFFFFFFFF
 			}
 		}
 	}
@@ -819,7 +808,7 @@ func (c8 *chip8) opFx1E() {
 /*
 Fx29 - LD F, Vx
 Set I = location of sprite for digit Vx.
-We know the font characters are located at 0x50, and we know they’re five bytes each, so we can get the address of the first byte of any character by taking an offset from the start address.
+We know the font characters are located at 0x50, and we know they're five bytes each, so we can get the address of the first byte of any character by taking an offset from the start address.
 */
 func (c8 *chip8) opFx29() {
 	vx := byte((c8.opcode & 0x0F00) >> 8)
@@ -858,7 +847,6 @@ Store registers V0 through Vx in memory starting at location I.
 func (c8 *chip8) opFx55() {
 	vx := byte((c8.opcode & 0x0F00) >> 8)
 
-	// TODO: This may cause an overflow or indexing issues. Need to do some thorough testing
 	for i := byte(0); i <= vx; i++ {
 		c8.memory[byte(c8.indexRegister)+i] = c8.registers[i]
 	}
@@ -871,7 +859,6 @@ Read registers V0 through Vx from memory starting at location I.
 func (c8 *chip8) opFx65() {
 	vx := byte((c8.opcode & 0x0F00) >> 8)
 
-	// TODO: This may cause an overflow or indexing issues. Need to do some thorough testing
 	for i := byte(0); i <= vx; i++ {
 		c8.registers[i] = c8.memory[byte(c8.indexRegister)+i]
 	}
