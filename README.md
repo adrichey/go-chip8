@@ -1,7 +1,7 @@
 # Overview
 This is a quick and dirty Chip8 emulator written in Go to further my knowledge on emulation.
 
-<img width="1280" height="640" alt="Screenshot 2025-09-26 093907" src="https://github.com/user-attachments/assets/1b4baf20-7b53-4905-9b3b-a588fba8cd50" />
+<img width="640" alt="Test ROM Screenshot" src="https://github.com/user-attachments/assets/1b4baf20-7b53-4905-9b3b-a588fba8cd50" />
 
 ## How to build this application
 - You will need to install SDL2 locally. No optional packages are needed for this application. Follow the Requirements section instructions in the [go-sdl2 package README](https://github.com/veandco/go-sdl2?tab=readme-ov-file#requirements).
