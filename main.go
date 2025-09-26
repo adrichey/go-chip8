@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/adrichey/go-chip8/emulator"
@@ -14,7 +13,7 @@ func main() {
 		return
 	}
 
-	err = c8.LoadChip8ROM("./1-chip8-logo.ch8")
+	err = c8.LoadChip8ROM("./roms/pong.ch8")
 	if err != nil {
 		log.Fatal(err)
 		return
@@ -22,6 +21,4 @@ func main() {
 	defer c8.Destroy()
 
 	c8.Run()
-
-	fmt.Println("EXITED")
 }

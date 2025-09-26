@@ -821,23 +821,23 @@ func (c8 *chip8) opFx29() {
 Fx33 - LD B, Vx
 Store BCD representation of Vx in memory locations I, I+1, and I+2.
 The interpreter takes the decimal value of Vx, and places the hundreds digit in memory at location in I, the tens digit at location I+1, and the ones digit at location I+2.
-We can use the modulus operator to get the right-most digit of a number, and then do a division to remove that digit.
-A division by ten will either completely remove the digit (340 / 10 = 34), or result in a float which will be truncated (345 / 10 = 34.5 = 34).
 */
 func (c8 *chip8) opFx33() {
 	vx := byte((c8.opcode & 0x0F00) >> 8)
 	value := c8.registers[vx]
 
-	// Ones-place
-	c8.memory[c8.indexRegister+2] = value % 10
-	value /= 10
+	// hundreds := value / 100
+	// c8.memory[c8.indexRegister] = hundreds
 
-	// Tens-place
-	c8.memory[c8.indexRegister+1] = value % 10
-	value /= 10
+	// tens := (value / 10) - (hundreds * 10)
+	// c8.memory[c8.indexRegister+1] = tens
 
-	// Hundreds-place
-	c8.memory[c8.indexRegister] = value % 10
+	// ones := value - (hundreds*100 + tens*10)
+	// c8.memory[c8.indexRegister+2] = ones
+
+	c8.memory[c8.indexRegister] = value / 100
+	c8.memory[c8.indexRegister+1] = (value / 10) % 10
+	c8.memory[c8.indexRegister+2] = (value % 100) / 10
 }
 
 /*
