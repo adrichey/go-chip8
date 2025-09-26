@@ -26,7 +26,6 @@ const START_ADDRESS uint = 0x200
 const FONTSET_START_ADDRESS uint = 0x50
 const VIDEO_HEIGHT = 32
 const VIDEO_WIDTH = 64
-const VIDEO_SCALE = 10
 const WINDOW_TITLE = "Chip8 Emulator"
 
 type chip8 struct {
@@ -83,10 +82,17 @@ type chip8 struct {
 	// SDL2 specific properties
 	window  *sdl.Window
 	surface *sdl.Surface
+
+	// Settings
+	videoScale int
+	cycleDelay float64
 }
 
-func NewChip8() (*chip8, error) {
-	c8 := chip8{}
+func NewChip8(videoScale int, cycleDelay float64) (*chip8, error) {
+	c8 := chip8{
+		videoScale: videoScale,
+		cycleDelay: cycleDelay,
+	}
 
 	for k := range c8.registers {
 		c8.registers[k] = 0
@@ -137,7 +143,7 @@ func NewChip8() (*chip8, error) {
 		return nil, err
 	}
 
-	window, err := sdl.CreateWindow(WINDOW_TITLE, sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED, VIDEO_WIDTH*VIDEO_SCALE, VIDEO_HEIGHT*VIDEO_SCALE, sdl.WINDOW_SHOWN)
+	window, err := sdl.CreateWindow(WINDOW_TITLE, sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED, int32(VIDEO_WIDTH*c8.videoScale), int32(VIDEO_HEIGHT*c8.videoScale), sdl.WINDOW_SHOWN)
 	if err != nil {
 		return nil, err
 	}
@@ -359,9 +365,9 @@ func (c8 *chip8) update() {
 			row++
 		}
 
-		yPos := int32(row * VIDEO_SCALE)
-		xPos := int32(col * VIDEO_SCALE)
-		pixel := &sdl.Rect{X: xPos, Y: yPos, W: VIDEO_SCALE, H: VIDEO_SCALE}
+		yPos := int32(row * c8.videoScale)
+		xPos := int32(col * c8.videoScale)
+		pixel := &sdl.Rect{X: xPos, Y: yPos, W: int32(c8.videoScale), H: int32(c8.videoScale)}
 
 		c8.surface.FillRect(pixel, color)
 	}
@@ -384,9 +390,7 @@ func (c8 *chip8) Run() {
 
 		d := float64(time.Since(lastCycleTime).Milliseconds())
 
-		var cycleDelay float64 = 1 // TODO: Add a flag to control this
-
-		if d > cycleDelay {
+		if d > c8.cycleDelay {
 			lastCycleTime = time.Now()
 			c8.cycle()
 			c8.update()
