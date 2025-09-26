@@ -342,7 +342,7 @@ func (c8 *chip8) cycle() {
 
 	// Decrement the sound timer if it's been set
 	if c8.soundTimer > 0 {
-		c8.soundTimer -= 1
+		c8.soundTimer -= 1 // TODO: Implement sound
 	}
 }
 
